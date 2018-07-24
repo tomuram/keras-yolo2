@@ -15,12 +15,12 @@ from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeN
 
 class YOLO(object):
     def __init__(self, backend,
-                       input_size, 
+                       input_shape,
                        labels, 
                        max_box_per_image,
                        anchors):
 
-        self.input_size = input_size
+        self.input_shape = input_shape
         
         self.labels   = list(labels)
         self.nb_class = len(self.labels)
@@ -35,23 +35,23 @@ class YOLO(object):
         ##########################
 
         # make the feature extractor layers
-        input_image     = Input(shape=(self.input_size, self.input_size, 3))
+        input_image     = Input(shape=(self.input_shape[0], self.input_shape[1], self.input_shape[2]))
         self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))  
 
         if backend == 'Inception3':
-            self.feature_extractor = Inception3Feature(self.input_size)  
+            self.feature_extractor = Inception3Feature(self.input_shape)  
         elif backend == 'SqueezeNet':
-            self.feature_extractor = SqueezeNetFeature(self.input_size)        
+            self.feature_extractor = SqueezeNetFeature(self.input_shape)        
         elif backend == 'MobileNet':
-            self.feature_extractor = MobileNetFeature(self.input_size)
+            self.feature_extractor = MobileNetFeature(self.input_shape)
         elif backend == 'Full Yolo':
-            self.feature_extractor = FullYoloFeature(self.input_size)
+            self.feature_extractor = FullYoloFeature(self.input_shape)
         elif backend == 'Tiny Yolo':
-            self.feature_extractor = TinyYoloFeature(self.input_size)
+            self.feature_extractor = TinyYoloFeature(self.input_shape)
         elif backend == 'VGG16':
-            self.feature_extractor = VGG16Feature(self.input_size)
+            self.feature_extractor = VGG16Feature(self.input_shape)
         elif backend == 'ResNet50':
-            self.feature_extractor = ResNet50Feature(self.input_size)
+            self.feature_extractor = ResNet50Feature(self.input_shape)
         else:
             raise Exception('Architecture not supported! Only support Full Yolo, Tiny Yolo, MobileNet, SqueezeNet, VGG16, ResNet50, and Inception3 at the moment!')
 
@@ -271,8 +271,9 @@ class YOLO(object):
         ############################################
 
         generator_config = {
-            'IMAGE_H'         : self.input_size, 
-            'IMAGE_W'         : self.input_size,
+            'IMAGE_H'         : self.input_shape[0], 
+            'IMAGE_W'         : self.input_shape[1],
+            'IMAGE_C'         : self.input_shape[2],
             'GRID_H'          : self.grid_h,  
             'GRID_W'          : self.grid_w,
             'BOX'             : self.nb_box,
@@ -460,7 +461,7 @@ class YOLO(object):
 
     def predict(self, image):
         image_h, image_w, _ = image.shape
-        image = cv2.resize(image, (self.input_size, self.input_size))
+        image = cv2.resize(image, (self.input_shape[0], self.input_shape[1]))
         image = self.feature_extractor.normalize(image)
 
         input_image = image[:,:,::-1]

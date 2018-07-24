@@ -64,7 +64,7 @@ def _main_(args):
     ###############################
 
     yolo = YOLO(backend             = config['model']['backend'],
-                input_size          = config['model']['input_size'], 
+                input_shape         = config['model']['input_shape'], 
                 labels              = config['model']['labels'], 
                 max_box_per_image   = config['model']['max_box_per_image'],
                 anchors             = config['model']['anchors'])

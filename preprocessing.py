@@ -8,22 +8,23 @@ from keras.utils import Sequence
 import xml.etree.ElementTree as ET
 from utils import BoundBox, bbox_iou
 
-def parse_annotation(ann_dir, img_dir, labels=[]):
+def parse_annotation(img_dir, labels=[]):
     all_imgs = []
     seen_labels = {}
     
-    for ann in sorted(os.listdir(ann_dir)):
+    for img_filename in sorted(os.listdir(img_dir)):
         img = {'object':[]}
 
-        tree = ET.parse(ann_dir + ann)
+        filecontents = np.load(img_filename)
+
+        nimgs_in_file = filecontents['raw'].shape[0]
+        img_shape = filecontents['raw'].shape[1:]
         
-        for elem in tree.iter():
-            if 'filename' in elem.tag:
-                img['filename'] = img_dir + elem.text
-            if 'width' in elem.tag:
-                img['width'] = int(elem.text)
-            if 'height' in elem.tag:
-                img['height'] = int(elem.text)
+        for i in range(nimgs_in_file):
+            img['filename'] = os.path.join(img_dir,img_filename)
+            img['width'] = img_shape[2]
+            img['height'] = img_shape[1]
+            img['depth'] = img_shape[0]
             if 'object' in elem.tag or 'part' in elem.tag:
                 obj = {}
                 
