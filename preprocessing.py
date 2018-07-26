@@ -8,6 +8,17 @@ from keras.utils import Sequence
 import xml.etree.ElementTree as ET
 from utils import BoundBox, bbox_iou
 
+# Right now the truth are format as:
+# bool objectFound   # if truth particle is in the hard scattering process 
+# bbox x                    # globe eta
+# bbox y                    # globe phi
+# bbox width             # Gaussian sigma (required to be 3*sigma<pi)
+# bbox height            # Gaussian sigma (required to be 3*sigma<pi)
+# bool class1             # truth u/d 
+# bool class2             # truth s
+# bool class3             # truth c
+# bool class4             # truth d
+# bool class_other     # truth g
 
 
 class BatchGenerator(Sequence):
