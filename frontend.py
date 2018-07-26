@@ -36,7 +36,7 @@ class YOLO(object):
         ##########################
 
         # make the feature extractor layers
-        input_image     = Input(shape=(self.input_shape[0], self.input_shape[1], self.input_shape[2]))
+        input_image     = Input(shape=tuple(self.input_shape))
         self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image, 4))
 
         if backend == 'Inception3':
@@ -102,7 +102,7 @@ class YOLO(object):
         """
         Adjust prediction
         """
-        ### adjust x and y      
+        ### adjust x and y
         pred_box_xy = tf.sigmoid(y_pred[..., :2]) + cell_grid
         
         ### adjust w and h
@@ -272,10 +272,10 @@ class YOLO(object):
         ############################################
 
         generator_config = {
-            'IMAGE_H'         : self.input_shape[0], 
+            'IMAGE_H'         : self.input_shape[0],
             'IMAGE_W'         : self.input_shape[1],
             'IMAGE_C'         : self.input_shape[2],
-            'GRID_H'          : self.grid_h,  
+            'GRID_H'          : self.grid_h,
             'GRID_W'          : self.grid_w,
             'BOX'             : self.nb_box,
             'LABELS'          : self.labels,
@@ -283,7 +283,7 @@ class YOLO(object):
             'ANCHORS'         : self.anchors,
             'BATCH_SIZE'      : self.batch_size,
             'TRUE_BOX_BUFFER' : self.max_box_per_image,
-        }    
+        }
 
         train_generator = BatchGenerator(train_imgs, 
                                      generator_config, 

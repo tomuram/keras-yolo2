@@ -1,35 +1,36 @@
 {
-    "model" : {
-        "backend":              "Full Yolo",
-        "input_shape":          [416, 416, 3],
-        "anchors":              [1],
-        "max_box_per_image":    10,
-        "labels":               ["bjet", "cjet", "sjet", "udjet"]
-    },
+   "model" : {
+      "backend":              "Full Yolo",
+      "input_shape":          [416, 416, 3],
+      "anchors":              [1],
+      "max_box_per_image":    10,
+      "labels":               ["bjet", "cjet", "sjet", "udjet"]
+   },
 
-    "train": {
-        "train_image_folder":   "/Users/jchilders/git/keras-yolo2/ruidata",    
-          
-        "train_times":          8,
-        "pretrained_weights":   "",
-        "batch_size":           16,
-        "learning_rate":        1e-4,
-        "nb_epochs":            1,
-        "warmup_epochs":        3,
+   "train": {
+      "train_image_folder":   "/Users/jchilders/git/keras-yolo2/ruidata",
+      "evts_per_file":        10,
+       
+      "train_times":          8,
+      "pretrained_weights":   "",
+      "batch_size":           16,
+      "learning_rate":        1e-4,
+      "nb_epochs":            1,
+      "warmup_epochs":        3,
 
-        "object_scale":         5.0 ,
-        "no_object_scale":      1.0,
-        "coord_scale":          1.0,
-        "class_scale":          1.0,
+      "object_scale":         5.0 ,
+      "no_object_scale":      1.0,
+      "coord_scale":          1.0,
+      "class_scale":          1.0,
 
-        "saved_weights_name":   "",
-        "debug":                true
-    },
+      "saved_weights_name":   "",
+      "debug":                true
+   },
 
-    "valid": {
-        "valid_image_folder":   "",
-        "valid_annot_folder":   "",
+   "valid": {
+      "valid_image_folder":   "",
+      "valid_annot_folder":   "",
 
-        "valid_times":          1
-    }
+      "valid_times":          1
+   }
 }

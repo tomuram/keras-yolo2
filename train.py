@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import argparse
-import os
+import os,glob
 import numpy as np
 from preprocessing import parse_annotation
 from frontend import YOLO
@@ -25,6 +25,8 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
+   filelist = glob.glob(config['train']['train_image_folder'])
+
 
 
 
@@ -43,43 +45,22 @@ def _main_(args):
                                                  config['valid']['valid_image_folder'],
                                                  config['model']['labels'])
    else:'''
-   train_valid_split = int(0.8*len(train_imgs))
-   np.random.shuffle(train_imgs)
+   train_valid_split = int(0.8*len(filelist))
+   np.random.shuffle(filelist)
 
    valid_imgs = train_imgs[train_valid_split:]
    train_imgs = train_imgs[:train_valid_split]
 
-   if len(config['model']['labels']) > 0:
-      overlap_labels = set(config['model']['labels']).intersection(set(train_labels.keys()))
-
-      print('Seen labels:\t', train_labels)
-      print('Given labels:\t', config['model']['labels'])
-      print('Overlap labels:\t', overlap_labels)           
-
-      if len(overlap_labels) < len(config['model']['labels']):
-         print('Some labels have no annotations! Please revise the list of labels in the config.json file!')
-         return
-   else:
-      print('No labels are provided. Train on all seen labels.')
-      config['model']['labels'] = train_labels.keys()
-     
    ###############################
    #   Construct the model
    ###############################
 
-   yolo = YOLO(backend           = config['model']['backend'],
-             input_shape         = config['model']['input_shape'],
-             labels              = config['model']['labels'],
-             max_box_per_image   = config['model']['max_box_per_image'],
-             anchors             = config['model']['anchors'])
+   yolo = YOLO(backend          = config['model']['backend'],
+            input_shape         = config['model']['input_shape'],
+            labels              = config['model']['labels'],
+            max_box_per_image   = config['model']['max_box_per_image'],
+            anchors             = config['model']['anchors'])
 
-   ###############################
-   #   Load the pretrained weights (if any)
-   ###############################
-
-   if os.path.exists(config['train']['pretrained_weights']):
-      print("Loading pre-trained weights in", config['train']['pretrained_weights'])
-      yolo.load_weights(config['train']['pretrained_weights'])
 
    ###############################
    #   Start the training process

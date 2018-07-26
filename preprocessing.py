@@ -1,4 +1,4 @@
-import os
+import os,glob
 import cv2
 import copy
 import numpy as np
@@ -8,73 +8,32 @@ from keras.utils import Sequence
 import xml.etree.ElementTree as ET
 from utils import BoundBox, bbox_iou
 
-def parse_annotation(img_dir, labels=[]):
-    all_imgs = []
-    seen_labels = {}
-    
-    for img_filename in sorted(os.listdir(img_dir)):
-        img = {'object':[]}
-
-        filecontents = np.load(img_filename)
-
-        nimgs_in_file = filecontents['raw'].shape[0]
-        img_shape = filecontents['raw'].shape[1:]
-        
-        for i in range(nimgs_in_file):
-            img['filename'] = os.path.join(img_dir,img_filename)
-            img['width'] = img_shape[2]
-            img['height'] = img_shape[1]
-            img['depth'] = img_shape[0]
-            if 'object' in elem.tag or 'part' in elem.tag:
-                obj = {}
-                
-                for attr in list(elem):
-                    if 'name' in attr.tag:
-                        obj['name'] = attr.text
-
-                        if obj['name'] in seen_labels:
-                            seen_labels[obj['name']] += 1
-                        else:
-                            seen_labels[obj['name']] = 1
-                        
-                        if len(labels) > 0 and obj['name'] not in labels:
-                            break
-                        else:
-                            img['object'] += [obj]
-                            
-                    if 'bndbox' in attr.tag:
-                        for dim in list(attr):
-                            if 'xmin' in dim.tag:
-                                obj['xmin'] = int(round(float(dim.text)))
-                            if 'ymin' in dim.tag:
-                                obj['ymin'] = int(round(float(dim.text)))
-                            if 'xmax' in dim.tag:
-                                obj['xmax'] = int(round(float(dim.text)))
-                            if 'ymax' in dim.tag:
-                                obj['ymax'] = int(round(float(dim.text)))
-
-        if len(img['object']) > 0:
-            all_imgs += [img]
-                        
-    return all_imgs, seen_labels
 
 
 class BatchGenerator(Sequence):
-    def __init__(self, images, 
-                       config, 
-                       shuffle=True,
-                       jitter=True,
-                       norm=None):
-        self.generator = None
+   def __init__(self,img_files,
+               config,
+               batch_size,
+               shuffle=True,
+               jitter=True,
+               norm=None):
+      self.generator = None
 
-        self.images = images
-        self.config = config
+      self.config          = config
+      self.filelist        = img_files
+      self.evts_per_file   = self.config['train']['evts_per_file']
+      self.batch_size      = batch_size
+      self.nevts           = len(filelist) * self.evt_per_file
+      self.nbatches        = int(self.nevts * (1. / self.batch_size))
+      self.num_classes     = len(config['LABELS'])
+      self.num_grid_x      = config['GRID_W']
+      self.num_grid_y      = config['GRID_H']
 
-        self.shuffle = shuffle
-        self.jitter  = jitter
-        self.norm    = norm
+      self.shuffle = shuffle
+      self.jitter  = jitter
+      self.norm    = norm
 
-        self.anchors = [BoundBox(0, 0, config['ANCHORS'][2*i], config['ANCHORS'][2*i+1]) for i in range(int(len(config['ANCHORS'])//2))]
+      self.anchors = [BoundBox(0, 0, config['ANCHORS'][2*i], config['ANCHORS'][2*i+1]) for i in range(int(len(config['ANCHORS'])//2))]
 
         ### augmentors by https://github.com/aleju/imgaug
         sometimes = lambda aug: iaa.Sometimes(0.5, aug)
@@ -303,3 +262,41 @@ class BatchGenerator(Sequence):
                 obj['xmax'] = self.config['IMAGE_W'] - xmin
                 
         return image, all_objs
+
+
+def global_to_grid(x,y,w,h,num_grid_x,num_grid_y):
+   ''' convert global bounding box coords to
+   grid coords. x,y = box center in relative coords
+   going from 0 to 1. w,h are the box width and
+   height in relative coords going from 0 to 1.
+   num_grid_x,num_grid_y define the number of bins
+   in x and y for the grid.
+   '''
+   global_coords  = [x,y]
+   global_sizes   = [w,h]
+   num_grid_bins  = [num_grid_x,num_grid_y]
+   grid_coords    = [0.,0.]
+   grid_sizes     = [0.,0.]
+   for i in range(len(global_coords)):
+      grid_bin_size = 1. / num_grid_bins[i]
+      grid_bin = int(global_coords[i] / grid_bin_size)
+      grid_coords[i] = (global_coords[i] - grid_bin_size * grid_bin) / grid_bin_size
+      grid_sizes[i] = (global_sizes[i] / grid_bin_size)
+
+   return grid_coords,grid_sizes
+
+
+def grid_to_global(grid_bin_x, grid_bin_y,grid_x,grid_y,grid_w,grid_h,num_grid_x,num_grid_y):
+   ''' inverse of global_to_grd '''
+   grid_bins      = [grid_bin_x,grid_bin_y]
+   grid_coords    = [grid_x,grid_y]
+   grid_sizes     = [grid_w,grid_h]
+   num_grid_bins  = [num_grid_x,num_grid_y]
+   global_coords  = [0.,0.]
+   global_sizes   = [0.,0.]
+   for i in range(len(global_coords)):
+      grid_bin_size     = 1. / num_grid_bins[i]
+      global_coords[i]  = (grid_bins[i] + grid_coords[i]) * grid_bin_size
+      global_sizes[i]   = grid_sizes[i] * grid_bin_size
+
+   return global_coords,global_sizes
