@@ -58,11 +58,12 @@ def parse_annotation(img_dir, labels=[]):
                         
     return all_imgs, seen_labels
 
+
 class BatchGenerator(Sequence):
     def __init__(self, images, 
                        config, 
-                       shuffle=True, 
-                       jitter=True, 
+                       shuffle=True,
+                       jitter=True,
                        norm=None):
         self.generator = None
 

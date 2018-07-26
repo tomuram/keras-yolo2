@@ -13,10 +13,11 @@ from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
 
+
 class YOLO(object):
     def __init__(self, backend,
                        input_shape,
-                       labels, 
+                       labels,
                        max_box_per_image,
                        anchors):
 
@@ -24,7 +25,7 @@ class YOLO(object):
         
         self.labels   = list(labels)
         self.nb_class = len(self.labels)
-        self.nb_box   = len(anchors)//2
+        self.nb_box   = len(anchors) // 2
         self.class_wt = np.ones(self.nb_class, dtype='float32')
         self.anchors  = anchors
 
@@ -36,12 +37,12 @@ class YOLO(object):
 
         # make the feature extractor layers
         input_image     = Input(shape=(self.input_shape[0], self.input_shape[1], self.input_shape[2]))
-        self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image , 4))  
+        self.true_boxes = Input(shape=(1, 1, 1, max_box_per_image, 4))
 
         if backend == 'Inception3':
-            self.feature_extractor = Inception3Feature(self.input_shape)  
+            self.feature_extractor = Inception3Feature(self.input_shape)
         elif backend == 'SqueezeNet':
-            self.feature_extractor = SqueezeNetFeature(self.input_shape)        
+            self.feature_extractor = SqueezeNetFeature(self.input_shape)
         elif backend == 'MobileNet':
             self.feature_extractor = MobileNetFeature(self.input_shape)
         elif backend == 'Full Yolo':
@@ -55,15 +56,15 @@ class YOLO(object):
         else:
             raise Exception('Architecture not supported! Only support Full Yolo, Tiny Yolo, MobileNet, SqueezeNet, VGG16, ResNet50, and Inception3 at the moment!')
 
-        print(self.feature_extractor.get_output_shape())    
-        self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()        
-        features = self.feature_extractor.extract(input_image)            
+        print(self.feature_extractor.get_output_shape())
+        self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()
+        features = self.feature_extractor.extract(input_image)
 
         # make the object detection layer
-        output = Conv2D(self.nb_box * (4 + 1 + self.nb_class), 
-                        (1,1), strides=(1,1), 
-                        padding='same', 
-                        name='DetectionLayer', 
+        output = Conv2D(self.nb_box * (4 + 1 + self.nb_class),
+                        (1,1), strides=(1,1),
+                        padding='same',
+                        name='DetectionLayer',
                         kernel_initializer='lecun_normal')(features)
         output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
@@ -75,8 +76,8 @@ class YOLO(object):
         layer = self.model.layers[-4]
         weights = layer.get_weights()
 
-        new_kernel = np.random.normal(size=weights[0].shape)/(self.grid_h*self.grid_w)
-        new_bias   = np.random.normal(size=weights[1].shape)/(self.grid_h*self.grid_w)
+        new_kernel = np.random.normal(size=weights[0].shape) / (self.grid_h * self.grid_w)
+        new_bias   = np.random.normal(size=weights[1].shape) / (self.grid_h * self.grid_w)
 
         layer.set_weights([new_kernel, new_bias])
 

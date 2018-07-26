@@ -3,13 +3,12 @@
         "backend":              "Full Yolo",
         "input_shape":          [416, 416, 3],
         "anchors":              [1],
-        "max_box_per_image":    10,        
-        "labels":               ["raccoon"]
+        "max_box_per_image":    10,
+        "labels":               ["bjet", "cjet", "sjet", "udjet"]
     },
 
     "train": {
-        "train_image_folder":   "/Users/jchilders/git/yolo/raccoon_dataset/images/",
-        "train_annot_folder":   "/Users/jchilders/git/yolo/raccoon_dataset/annotations/",     
+        "train_image_folder":   "/Users/jchilders/git/keras-yolo2/ruidata",    
           
         "train_times":          8,
         "pretrained_weights":   "",
