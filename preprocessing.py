@@ -164,8 +164,6 @@ class BatchGenerator(Sequence):
               image_index = 0
 
             img = file_content['raw'][image_index]
-            # turam - pad rows to produce a good power-of-2 size
-            img = np.pad(img,[ [0,0], [5,0], [0,0] ],'constant')
             all_objs = file_content['truth'][image_index]
 
             # augment input image and fix object's position and size
