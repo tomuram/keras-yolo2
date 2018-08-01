@@ -1,6 +1,6 @@
 {
    "model" : {
-      "backend":              "Full Yolo",
+      "backend":              "Full Yolo NCHW",
       "input_shape":          [16,256,9600],
       "anchors":              [1,1],
       "max_box_per_image":    1,

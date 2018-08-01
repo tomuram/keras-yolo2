@@ -12,7 +12,7 @@ from keras.optimizers import SGD, Adam, RMSprop
 from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
-
+from backend import FullYoloFeatureNCHW
 
 class YOLO(object):
     def __init__(self, backend,
@@ -45,6 +45,8 @@ class YOLO(object):
             self.feature_extractor = SqueezeNetFeature(self.input_shape)
         elif backend == 'MobileNet':
             self.feature_extractor = MobileNetFeature(self.input_shape)
+        elif backend == 'Full Yolo NCHW':
+            self.feature_extractor = FullYoloFeatureNCHW(self.input_shape)
         elif backend == 'Full Yolo':
             self.feature_extractor = FullYoloFeature(self.input_shape)
         elif backend == 'Tiny Yolo':
@@ -275,9 +277,9 @@ class YOLO(object):
         ############################################
 
         generator_config = {
-            'IMAGE_H'         : self.input_shape[0],
-            'IMAGE_W'         : self.input_shape[1],
-            'IMAGE_C'         : self.input_shape[2],
+            'IMAGE_C'         : self.input_shape[0],
+            'IMAGE_H'         : self.input_shape[1],
+            'IMAGE_W'         : self.input_shape[2],
             'GRID_H'          : self.grid_h,
             'GRID_W'          : self.grid_w,
             'BOX'             : self.nb_box,
