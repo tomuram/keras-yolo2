@@ -90,7 +90,9 @@ class YOLO(object):
         cell_x = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_w), [self.grid_h]), (1, self.grid_h, self.grid_w, 1, 1)))
         cell_y = tf.transpose(cell_x, (0,2,1,3,4))
 
-        cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
+        # turam - skip concatenation with transpose, as it assumes that we have a square image
+        #cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
+        cell_grid = tf.tile(cell_x, [self.batch_size, 1, 1, self.nb_box, 1])
         
         coord_mask = tf.zeros(mask_shape)
         conf_mask  = tf.zeros(mask_shape)
@@ -245,6 +247,7 @@ class YOLO(object):
 
     def train(self, train_imgs,     # the list of images to train the model
                     valid_imgs,     # the list of images used to validate the model
+                    evts_per_file,  # the number of events in each file
                     train_times,    # the number of time to repeat the training set, often used for small datasets
                     valid_times,    # the number of times to repeat the validation set, often used for small datasets
                     nb_epochs,      # number of epoches
@@ -287,9 +290,11 @@ class YOLO(object):
 
         train_generator = BatchGenerator(train_imgs, 
                                      generator_config, 
+                                     evts_per_file,
                                      norm=self.feature_extractor.normalize)
         valid_generator = BatchGenerator(valid_imgs, 
                                      generator_config, 
+                                     evts_per_file,
                                      norm=self.feature_extractor.normalize,
                                      jitter=False)   
                                      

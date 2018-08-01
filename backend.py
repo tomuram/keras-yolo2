@@ -42,6 +42,9 @@ class FullYoloFeature(BaseFeatureExtractor):
 
         # the function to implement the orgnization layer (thanks to github.com/allanzelener/YAD2K)
         def space_to_depth_x2(x):
+            import traceback
+            print('------ in space_to_depth_x2 with x = ', x, '----------------------')
+            traceback.print_stack()
             return tf.space_to_depth(x, block_size=2)
 
         # Layer 1
