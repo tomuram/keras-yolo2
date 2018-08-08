@@ -153,6 +153,8 @@ class BatchGenerator(Sequence):
 
         file_index = idx % self.evts_per_file
         image_index = idx - file_index
+        import threading
+        print('thread ' + str(threading.get_ident()) + 'opening file with file_index ', file_index)
         file_content = np.load(self.filelist[file_index])
 
         for i in range(self.config['BATCH_SIZE']):

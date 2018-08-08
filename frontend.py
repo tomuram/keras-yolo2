@@ -60,6 +60,7 @@ class YOLO(object):
 
         print(self.feature_extractor.get_output_shape())
         self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()
+        self.feature_extractor.feature_extractor.summary()
         features = self.feature_extractor.extract(input_image)
 
         # make the object detection layer
@@ -68,7 +69,8 @@ class YOLO(object):
                         padding='same',
                         name='DetectionLayer',
                         kernel_initializer='lecun_normal')(features)
-        output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
+        output = Reshape((self.grid_h, self.grid_w, 4 + 1 + self.nb_class))(output)
+        # output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
 
         self.model = Model([input_image, self.true_boxes], output)
@@ -307,7 +309,10 @@ class YOLO(object):
         ############################################
 
         optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-        self.model.compile(loss=self.custom_loss, optimizer=optimizer)
+        self.model.summary()
+
+        self.model.compile(loss='mean_squared_error', optimizer=optimizer)
+        # self.model.compile(loss=self.custom_loss, optimizer=optimizer)
 
         ############################################
         # Make a few callbacks
@@ -341,8 +346,8 @@ class YOLO(object):
                                  validation_data  = valid_generator,
                                  validation_steps = len(valid_generator) * valid_times,
                                  callbacks        = [early_stop, checkpoint, tensorboard], 
-                                 workers          = 3,
-                                 max_queue_size   = 8)      
+                                 workers          = 0,
+                                 max_queue_size   = 5)      
 
         ############################################
         # Compute mAP on the validation set
@@ -469,7 +474,7 @@ class YOLO(object):
 
     def predict(self, image):
         image_h, image_w, _ = image.shape
-        image = cv2.resize(image, (self.input_shape[0], self.input_shape[1]))
+        image = cv2.resize(image, (self.input_shape[1], self.input_shape[2]))
         image = self.feature_extractor.normalize(image)
 
         input_image = image[:,:,::-1]
