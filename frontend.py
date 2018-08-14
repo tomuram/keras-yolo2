@@ -12,7 +12,7 @@ from keras.optimizers import SGD, Adam, RMSprop
 from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
-
+from backend import FullYoloFeatureNCHW
 
 class YOLO(object):
     def __init__(self, backend,
@@ -45,6 +45,8 @@ class YOLO(object):
             self.feature_extractor = SqueezeNetFeature(self.input_shape)
         elif backend == 'MobileNet':
             self.feature_extractor = MobileNetFeature(self.input_shape)
+        elif backend == 'Full Yolo NCHW':
+            self.feature_extractor = FullYoloFeatureNCHW(self.input_shape)
         elif backend == 'Full Yolo':
             self.feature_extractor = FullYoloFeature(self.input_shape)
         elif backend == 'Tiny Yolo':
@@ -58,6 +60,7 @@ class YOLO(object):
 
         print(self.feature_extractor.get_output_shape())
         self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()
+        self.feature_extractor.feature_extractor.summary()
         features = self.feature_extractor.extract(input_image)
 
         # make the object detection layer
@@ -66,7 +69,8 @@ class YOLO(object):
                         padding='same',
                         name='DetectionLayer',
                         kernel_initializer='lecun_normal')(features)
-        output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
+        output = Reshape((self.grid_h, self.grid_w, 4 + 1 + self.nb_class))(output)
+        # output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
 
         self.model = Model([input_image, self.true_boxes], output)
@@ -90,7 +94,9 @@ class YOLO(object):
         cell_x = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_w), [self.grid_h]), (1, self.grid_h, self.grid_w, 1, 1)))
         cell_y = tf.transpose(cell_x, (0,2,1,3,4))
 
-        cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
+        # turam - skip concatenation with transpose, as it assumes that we have a square image
+        #cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
+        cell_grid = tf.tile(cell_x, [self.batch_size, 1, 1, self.nb_box, 1])
         
         coord_mask = tf.zeros(mask_shape)
         conf_mask  = tf.zeros(mask_shape)
@@ -245,6 +251,7 @@ class YOLO(object):
 
     def train(self, train_imgs,     # the list of images to train the model
                     valid_imgs,     # the list of images used to validate the model
+                    evts_per_file,  # the number of events in each file
                     train_times,    # the number of time to repeat the training set, often used for small datasets
                     valid_times,    # the number of times to repeat the validation set, often used for small datasets
                     nb_epochs,      # number of epoches
@@ -272,9 +279,9 @@ class YOLO(object):
         ############################################
 
         generator_config = {
-            'IMAGE_H'         : self.input_shape[0],
-            'IMAGE_W'         : self.input_shape[1],
-            'IMAGE_C'         : self.input_shape[2],
+            'IMAGE_C'         : self.input_shape[0],
+            'IMAGE_H'         : self.input_shape[1],
+            'IMAGE_W'         : self.input_shape[2],
             'GRID_H'          : self.grid_h,
             'GRID_W'          : self.grid_w,
             'BOX'             : self.nb_box,
@@ -287,9 +294,11 @@ class YOLO(object):
 
         train_generator = BatchGenerator(train_imgs, 
                                      generator_config, 
+                                     evts_per_file,
                                      norm=self.feature_extractor.normalize)
         valid_generator = BatchGenerator(valid_imgs, 
                                      generator_config, 
+                                     evts_per_file,
                                      norm=self.feature_extractor.normalize,
                                      jitter=False)   
                                      
@@ -300,7 +309,10 @@ class YOLO(object):
         ############################################
 
         optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-        self.model.compile(loss=self.custom_loss, optimizer=optimizer)
+        self.model.summary()
+
+        self.model.compile(loss='mean_squared_error', optimizer=optimizer)
+        # self.model.compile(loss=self.custom_loss, optimizer=optimizer)
 
         ############################################
         # Make a few callbacks
@@ -334,8 +346,8 @@ class YOLO(object):
                                  validation_data  = valid_generator,
                                  validation_steps = len(valid_generator) * valid_times,
                                  callbacks        = [early_stop, checkpoint, tensorboard], 
-                                 workers          = 3,
-                                 max_queue_size   = 8)      
+                                 workers          = 0,
+                                 max_queue_size   = 5)      
 
         ############################################
         # Compute mAP on the validation set
@@ -462,7 +474,7 @@ class YOLO(object):
 
     def predict(self, image):
         image_h, image_w, _ = image.shape
-        image = cv2.resize(image, (self.input_shape[0], self.input_shape[1]))
+        image = cv2.resize(image, (self.input_shape[1], self.input_shape[2]))
         image = self.feature_extractor.normalize(image)
 
         input_image = image[:,:,::-1]

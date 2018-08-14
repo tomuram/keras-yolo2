@@ -3,7 +3,7 @@
 import argparse
 import os,glob
 import numpy as np
-from preprocessing import parse_annotation
+# from preprocessing import parse_annotation
 from frontend import YOLO
 import json
 
@@ -25,9 +25,10 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
-   filelist = glob.glob(config['train']['train_image_folder'])
+   filelist = glob.glob(config['train']['train_image_folder'] +'/*')
 
-
+   print('train_image_folder = ', config['train']['train_image_folder'] +'/*')
+   print('filelist = ', filelist)
 
 
    ###############################
@@ -48,8 +49,12 @@ def _main_(args):
    train_valid_split = int(0.8*len(filelist))
    np.random.shuffle(filelist)
 
-   valid_imgs = train_imgs[train_valid_split:]
-   train_imgs = train_imgs[:train_valid_split]
+   valid_imgs = filelist[train_valid_split:]
+   train_imgs = filelist[:train_valid_split]
+
+   print(f'Length of filelist:{len(filelist)}')
+   print(f'Length of train_images:{len(train_imgs)}')
+   print(f'Length of valid_imgs:{len(valid_imgs)}')
 
    ###############################
    #   Construct the model
@@ -68,6 +73,7 @@ def _main_(args):
 
    yolo.train(train_imgs       = train_imgs,
             valid_imgs         = valid_imgs,
+            evts_per_file      = config['train']['evts_per_file'],
             train_times        = config['train']['train_times'],
             valid_times        = config['valid']['valid_times'],
             nb_epochs          = config['train']['nb_epochs'],
