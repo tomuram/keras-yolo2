@@ -70,12 +70,12 @@ class YOLO(object):
                         name='DetectionLayer',
                         kernel_initializer='lecun_normal',
                         data_format='channels_first')(features)
-        print('DetectionLayer ',features.shape)
+        print('DetectionLayer ',output.shape)
         # output = Reshape((self.grid_h, self.grid_w, 4 + 1 + self.nb_class))(output)
         output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
-        print('reshape ',features.shape)
+        print('reshape ',output.shape)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
-        print('lambda ',features.shape)
+        print('lambda ',output.shape)
 
         self.model = Model([input_image, self.true_boxes], output)
 

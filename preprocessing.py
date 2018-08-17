@@ -161,7 +161,7 @@ class BatchGenerator(Sequence):
         b_batch = np.zeros((r_bound - l_bound, 1, 1, 1, self.config['TRUE_BOX_BUFFER'], 4))   # list of self.config['TRUE_self.config['BOX']_BUFFER'] GT boxes
         # turam - removed space for anchor boxes
         # y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'],  self.config['GRID_W'], self.config['BOX'], 4+1+len(self.config['LABELS'])))                # desired network output
-        y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'], self.config['GRID_W'], 4 + 1 + len(self.config['LABELS'])))                # desired network output
+        y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'], self.config['GRID_W'], self.config['BOX'], 4 + 1 + len(self.config['LABELS'])))                # desired network output
 
         file_index = idx % self.evts_per_file
         image_index = idx - file_index
@@ -209,9 +209,9 @@ class BatchGenerator(Sequence):
                     # turam - note: removed anchor box handling
 
                     # assign ground truth x, y, w, h, confidence and class probs to y_batch
-                    y_batch[instance_count, grid_y, grid_x, 0:4] = box
-                    y_batch[instance_count, grid_y, grid_x, 4] = 1.
-                    y_batch[instance_count, grid_y, grid_x, 5:10] = obj[5:10]
+                    y_batch[instance_count, grid_y, grid_x, 0, 0:4] = box
+                    y_batch[instance_count, grid_y, grid_x, 0, 4] = 1.
+                    y_batch[instance_count, grid_y, grid_x, 0, 5:10] = obj[5:10]
                     
                     # assign the true box to b_batch
                     b_batch[instance_count, 0, 0, 0, true_box_index] = box
