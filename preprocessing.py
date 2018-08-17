@@ -1,29 +1,36 @@
-import os,glob
+# import os,glob
 # import cv2
-import copy
+# import copy
+
+import sys,time
+if sys.version >= (3,0):
+   import threading as threadmod
+else:
+   import thread as threadmod
+
 import numpy as np
-import imgaug as ia
-from imgaug import augmenters as iaa
+# import imgaug as ia
+# from imgaug import augmenters as iaa
 from keras.utils import Sequence
-import xml.etree.ElementTree as ET
-from utils import BoundBox, bbox_iou
+# import xml.etree.ElementTree as ET
+from utils import BoundBox  # , bbox_iou
 
 # Right now the truth are format as:
-# bool objectFound   # if truth particle is in the hard scattering process 
+# bool objectFound   # if truth particle is in the hard scattering process
 # bbox x                    # globe eta
 # bbox y                    # globe phi
 # bbox width             # Gaussian sigma (required to be 3*sigma<pi)
 # bbox height            # Gaussian sigma (required to be 3*sigma<pi)
-# bool class1             # truth u/d 
+# bool class1             # truth u/d
 # bool class2             # truth s
 # bool class3             # truth c
 # bool class4             # truth d
 # bool class_other     # truth g
 
-BBOX_CENTER_X=1
-BBOX_CENTER_Y=2
-BBOX_WIDTH=3
-BBOX_HEIGHT=4
+BBOX_CENTER_X = 1
+BBOX_CENTER_Y = 2
+BBOX_WIDTH = 3
+BBOX_HEIGHT = 4
 
 
 class BatchGenerator(Sequence):
@@ -49,8 +56,9 @@ class BatchGenerator(Sequence):
       self.jitter  = jitter
       self.norm    = norm
 
-      self.anchors = [BoundBox(0, 0, config['ANCHORS'][2*i], config['ANCHORS'][2*i+1]) for i in range(int(len(config['ANCHORS'])//2))]
+      self.anchors = [BoundBox(0, 0, config['ANCHORS'][2 * i], config['ANCHORS'][2 * i + 1]) for i in range(int(len(config['ANCHORS']) // 2))]
 
+      '''
       ### augmentors by https://github.com/aleju/imgaug
       sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
@@ -108,25 +116,27 @@ class BatchGenerator(Sequence):
           ],
           random_order=True
       )
+      '''
 
-      if shuffle: np.random.shuffle(self.filelist)
+      if shuffle:
+         np.random.shuffle(self.filelist)
 
     def __len__(self):
-        return int(np.ceil(float(self.nevts)/self.config['BATCH_SIZE']))   
+        return int(np.ceil(float(self.nevts) / self.config['BATCH_SIZE']))
 
     def num_classes(self):
         return len(self.config['LABELS'])
 
     def size(self):
-        return self.nevts   
+        return self.nevts
 
     def load_annotation(self, i):
         file_index = i % self.evts_per_file
         image_index = i - file_index
         file_content = np.load(self.filelist[file_index])
         obj = file_content['truth'][image_index]
-        annot = [ obj[BBOX_CENTER_X], obj[BBOX_CENTER_Y], obj[BBOX_WIDTH], obj[BBOX_HEIGHT], np.argmax(obj[5:10]) ]
-        return np.array( [ annot ] )
+        annot = [obj[BBOX_CENTER_X], obj[BBOX_CENTER_Y], obj[BBOX_WIDTH], obj[BBOX_HEIGHT], np.argmax(obj[5:10])]
+        return np.array([annot])
 
     def load_image(self, i):
         file_index = i % self.evts_per_file
@@ -136,8 +146,10 @@ class BatchGenerator(Sequence):
 
     # return a batch of images starting at the given index
     def __getitem__(self, idx):
-        l_bound = idx*self.config['BATCH_SIZE']
-        r_bound = (idx+1)*self.config['BATCH_SIZE']
+        start = time.time()
+        print('starting get batch')
+        l_bound = idx * self.config['BATCH_SIZE']
+        r_bound = (idx + 1) * self.config['BATCH_SIZE']
 
         if r_bound > self.size():
             r_bound = self.size()
@@ -146,18 +158,18 @@ class BatchGenerator(Sequence):
         instance_count = 0
 
         x_batch = np.zeros((r_bound - l_bound, self.config['IMAGE_C'], self.config['IMAGE_H'], self.config['IMAGE_W']))                         # input images
-        b_batch = np.zeros((r_bound - l_bound, 1     , 1     , 1    ,  self.config['TRUE_BOX_BUFFER'], 4))   # list of self.config['TRUE_self.config['BOX']_BUFFER'] GT boxes
+        b_batch = np.zeros((r_bound - l_bound, 1, 1, 1, self.config['TRUE_BOX_BUFFER'], 4))   # list of self.config['TRUE_self.config['BOX']_BUFFER'] GT boxes
         # turam - removed space for anchor boxes
-        #y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'],  self.config['GRID_W'], self.config['BOX'], 4+1+len(self.config['LABELS'])))                # desired network output
-        y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'],  self.config['GRID_W'], 4+1+len(self.config['LABELS'])))                # desired network output
+        # y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'],  self.config['GRID_W'], self.config['BOX'], 4+1+len(self.config['LABELS'])))                # desired network output
+        y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'], self.config['GRID_W'], 4 + 1 + len(self.config['LABELS'])))                # desired network output
 
         file_index = idx % self.evts_per_file
         image_index = idx - file_index
-        import threading
-        print('thread ' + str(threading.get_ident()) + 'opening file with file_index ', file_index)
+        print('[{0}] thread '.format(time.time() - start),threadmod.get_ident(),' opening file with file_index ', file_index, ' image_index ',image_index)
         file_content = np.load(self.filelist[file_index])
 
         for i in range(self.config['BATCH_SIZE']):
+            print('[{0}] loop {1} start'.format(time.time() - start,i))
 
 
             if image_index >= self.evts_per_file:
@@ -167,6 +179,9 @@ class BatchGenerator(Sequence):
 
             img = file_content['raw'][image_index]
             all_objs = file_content['truth'][image_index]
+
+
+            print('[{0}] loop {1} file loaded'.format(time.time() - start,i))
 
             # augment input image and fix object's position and size
             # img, all_objs = self.aug_image(img, all_objs, jitter=self.jitter)
@@ -186,8 +201,8 @@ class BatchGenerator(Sequence):
 
                 if grid_x < self.config['GRID_W'] and grid_y < self.config['GRID_H']:
                     
-                    center_w = (obj[BBOX_WIDTH]) / (float(self.config['IMAGE_W']) / self.config['GRID_W']) # unit: grid cell
-                    center_h = (obj[BBOX_HEIGHT]) / (float(self.config['IMAGE_H']) / self.config['GRID_H']) # unit: grid cell
+                    center_w = (obj[BBOX_WIDTH]) / (float(self.config['IMAGE_W']) / self.config['GRID_W'])  # unit: grid cell
+                    center_h = (obj[BBOX_HEIGHT]) / (float(self.config['IMAGE_H']) / self.config['GRID_H'])  # unit: grid cell
                     
                     box = [center_x, center_y, center_w, center_h]
 
@@ -195,7 +210,7 @@ class BatchGenerator(Sequence):
 
                     # assign ground truth x, y, w, h, confidence and class probs to y_batch
                     y_batch[instance_count, grid_y, grid_x, 0:4] = box
-                    y_batch[instance_count, grid_y, grid_x, 4  ] = 1.
+                    y_batch[instance_count, grid_y, grid_x, 4] = 1.
                     y_batch[instance_count, grid_y, grid_x, 5:10] = obj[5:10]
                     
                     # assign the true box to b_batch
@@ -203,35 +218,42 @@ class BatchGenerator(Sequence):
                     
                     true_box_index += 1
                     true_box_index = true_box_index % self.config['TRUE_BOX_BUFFER']
+
+            print('[{0}] loop {1} images converted'.format(time.time() - start,i))
                             
             # assign input image to x_batch
-            if self.norm != None: 
+            if self.norm is not None:
                 x_batch[instance_count] = self.norm(img)
+            
             # turam - disable plotting
-            """ 
+            
+            """
             else:
                 # plot image and bounding boxes for sanity check
                 for obj in all_objs:
                     if obj['xmax'] > obj['xmin'] and obj['ymax'] > obj['ymin']:
                         cv2.rectangle(img[:,:,::-1], (obj['xmin'],obj['ymin']), (obj['xmax'],obj['ymax']), (255,0,0), 3)
-                        cv2.putText(img[:,:,::-1], obj['name'], 
-                                    (obj['xmin']+2, obj['ymin']+12), 
-                                    0, 1.2e-3 * img.shape[0], 
+                        cv2.putText(img[:,:,::-1], obj['name'],
+                                    (obj['xmin']+2, obj['ymin']+12),
+                                    0, 1.2e-3 * img.shape[0],
                                     (0,255,0), 2)
                         
                 x_batch[instance_count] = img
             """
 
             # increase instance counter in current batch
-            instance_count += 1  
+            instance_count += 1
             image_index += 1
+       
+        print('[{0}] exitig'.format(time.time() - start))
 
-        #print(' new batch created', idx)
+        # print(' new batch created', idx)
 
         return [x_batch, b_batch], y_batch
 
     def on_epoch_end(self):
-        if self.shuffle: np.random.shuffle(self.filelist)
+        if self.shuffle:
+            np.random.shuffle(self.filelist)
 
     """
     def aug_image(self, image, all_objs, jitter):
@@ -254,7 +276,7 @@ class BatchGenerator(Sequence):
             flip = np.random.binomial(1, .5)
             if flip > 0.5: image = cv2.flip(image, 1)
                 
-            image = self.aug_pipe.augment_image(image)            
+            image = self.aug_pipe.augment_image(image)
             
         # resize the image to standard size
         image = cv2.resize(image, (self.config['IMAGE_H'], self.config['IMAGE_W']))
@@ -281,6 +303,7 @@ class BatchGenerator(Sequence):
                 
         return image, all_objs
         """
+
 
 def global_to_grid(x,y,w,h,num_grid_x,num_grid_y):
    ''' convert global bounding box coords to

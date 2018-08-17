@@ -29,7 +29,9 @@ class BaseFeatureExtractor(object):
         raise NotImplementedError("error message")
 
     def get_output_shape(self):
-        return self.feature_extractor.get_output_shape_at(-1)[1:3]
+        #return self.feature_extractor.get_output_shape_at(-1)[1:3]
+        # taylor: changed idices to match NCHW
+        return self.feature_extractor.get_output_shape_at(-1)[2:4]
 
     def extract(self, input_image):
         return self.feature_extractor(input_image)
@@ -39,25 +41,28 @@ class FullYoloFeatureNCHW(BaseFeatureExtractor):
     """docstring for ClassName"""
     def __init__(self, input_shape):
         input_image = Input(shape=tuple(input_shape))
+        print('input_shape: ',input_image.shape)
 
         # the function to implement the orgnization layer (thanks to github.com/allanzelener/YAD2K)
         def space_to_depth_x2(x):
             # import traceback
             # print('------ in space_to_depth_x2 with x = ', x, '----------------------')
             # traceback.print_stack()
-            return tf.space_to_depth(x, block_size=2, data_format="NCHW")
+            return tf.space_to_depth(x, block_size=3, data_format="NCHW")
 
         # Layer 1
         x = Conv2D(32, (3,3), strides=(1,1), padding='same', name='conv_1', use_bias=False, data_format="channels_first")(input_image)
         x = BatchNormalization(axis=1,name='norm_1')(x)
         x = LeakyReLU(alpha=0.1)(x)
         x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
+        print('pool_1: ',x.shape)
 
         # Layer 2
         x = Conv2D(64, (3,3), strides=(1,1), padding='same', name='conv_2', use_bias=False, data_format="channels_first")(x)
         x = BatchNormalization(axis=1,name='norm_2')(x)
         x = LeakyReLU(alpha=0.1)(x)
         x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
+        print('pool_2: ',x.shape)
 
         # Layer 3
         x = Conv2D(128, (3,3), strides=(1,1), padding='same', name='conv_3', use_bias=False, data_format="channels_first")(x)
@@ -74,6 +79,7 @@ class FullYoloFeatureNCHW(BaseFeatureExtractor):
         x = BatchNormalization(axis=1,name='norm_5')(x)
         x = LeakyReLU(alpha=0.1)(x)
         x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
+        print('pool_5: ',x.shape)
 
         # Layer 6
         x = Conv2D(256, (3,3), strides=(1,1), padding='same', name='conv_6', use_bias=False, data_format="channels_first")(x)
@@ -90,6 +96,7 @@ class FullYoloFeatureNCHW(BaseFeatureExtractor):
         x = BatchNormalization(axis=1,name='norm_8')(x)
         x = LeakyReLU(alpha=0.1)(x)
         x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
+        print('pool_8: ',x.shape)
 
         # Layer 9
         x = Conv2D(512, (3,3), strides=(1,1), padding='same', name='conv_9', use_bias=False, data_format="channels_first")(x)
@@ -115,10 +122,11 @@ class FullYoloFeatureNCHW(BaseFeatureExtractor):
         x = Conv2D(512, (3,3), strides=(1,1), padding='same', name='conv_13', use_bias=False, data_format="channels_first")(x)
         x = BatchNormalization(axis=1,name='norm_13')(x)
         x = LeakyReLU(alpha=0.1)(x)
-
+        
+        x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
         skip_connection = x
 
-        x = MaxPooling2D(pool_size=(2, 2), data_format="channels_first")(x)
+        
 
         # Layer 14
         x = Conv2D(1024, (3,3), strides=(1,1), padding='same', name='conv_14', use_bias=False, data_format="channels_first")(x)
@@ -156,10 +164,15 @@ class FullYoloFeatureNCHW(BaseFeatureExtractor):
         x = LeakyReLU(alpha=0.1)(x)
 
         # Layer 21
+        print('skip_connection: ',skip_connection.shape)
         skip_connection = Conv2D(64, (1,1), strides=(1,1), padding='same', name='conv_21', use_bias=False, data_format="channels_first")(skip_connection)
+        print('skip_connection: ',skip_connection.shape)
         skip_connection = BatchNormalization(axis=1,name='norm_21')(skip_connection)
+        print('skip_connection: ',skip_connection.shape)
         skip_connection = LeakyReLU(alpha=0.1)(skip_connection)
-        skip_connection = Lambda(space_to_depth_x2)(skip_connection)
+        print('skip_connection: ',skip_connection.shape)
+        #skip_connection = Lambda(space_to_depth_x2)(skip_connection)
+        #print('skip_connection: ',skip_connection.shape)
 
         x = concatenate([skip_connection, x], axis=1)
 

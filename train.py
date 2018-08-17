@@ -25,9 +25,9 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
-   filelist = glob.glob(config['train']['train_image_folder'] +'/*')
+   filelist = glob.glob(config['train']['train_image_folder'] + '/*')
 
-   print('train_image_folder = ', config['train']['train_image_folder'] +'/*')
+   print('train_image_folder = ', config['train']['train_image_folder'] + '/*')
    print('filelist = ', filelist)
 
 
@@ -46,15 +46,15 @@ def _main_(args):
                                                  config['valid']['valid_image_folder'],
                                                  config['model']['labels'])
    else:'''
-   train_valid_split = int(0.8*len(filelist))
+   train_valid_split = int(0.8 * len(filelist))
    np.random.shuffle(filelist)
 
    valid_imgs = filelist[train_valid_split:]
    train_imgs = filelist[:train_valid_split]
 
-   print(f'Length of filelist:{len(filelist)}')
-   print(f'Length of train_images:{len(train_imgs)}')
-   print(f'Length of valid_imgs:{len(valid_imgs)}')
+   print('Length of filelist:{len(filelist)}')
+   print('Length of train_images:{len(train_imgs)}')
+   print('Length of valid_imgs:{len(valid_imgs)}')
 
    ###############################
    #   Construct the model

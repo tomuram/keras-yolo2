@@ -60,18 +60,22 @@ class YOLO(object):
 
         print(self.feature_extractor.get_output_shape())
         self.grid_h, self.grid_w = self.feature_extractor.get_output_shape()
-        self.feature_extractor.feature_extractor.summary()
         features = self.feature_extractor.extract(input_image)
 
         # make the object detection layer
+        print('features ',features.shape)
         output = Conv2D(self.nb_box * (4 + 1 + self.nb_class),
                         (1,1), strides=(1,1),
                         padding='same',
                         name='DetectionLayer',
-                        kernel_initializer='lecun_normal')(features)
-        output = Reshape((self.grid_h, self.grid_w, 4 + 1 + self.nb_class))(output)
-        # output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
+                        kernel_initializer='lecun_normal',
+                        data_format='channels_first')(features)
+        print('DetectionLayer ',features.shape)
+        # output = Reshape((self.grid_h, self.grid_w, 4 + 1 + self.nb_class))(output)
+        output = Reshape((self.grid_h, self.grid_w, self.nb_box, 4 + 1 + self.nb_class))(output)
+        print('reshape ',features.shape)
         output = Lambda(lambda args: args[0])([output, self.true_boxes])
+        print('lambda ',features.shape)
 
         self.model = Model([input_image, self.true_boxes], output)
 
@@ -89,14 +93,17 @@ class YOLO(object):
         self.model.summary()
 
     def custom_loss(self, y_true, y_pred):
+
         mask_shape = tf.shape(y_true)[:4]
         
         cell_x = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_w), [self.grid_h]), (1, self.grid_h, self.grid_w, 1, 1)))
-        cell_y = tf.transpose(cell_x, (0,2,1,3,4))
+        cell_y = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_h), [self.grid_w]), (1, self.grid_w, self.grid_h, 1, 1)))
+        cell_y = tf.transpose(cell_y, (0,2,1,3,4))
 
         # turam - skip concatenation with transpose, as it assumes that we have a square image
-        #cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
-        cell_grid = tf.tile(cell_x, [self.batch_size, 1, 1, self.nb_box, 1])
+        cell_grid = tf.tile(tf.concat([cell_x,cell_y], -1), [self.batch_size, 1, 1, self.nb_box, 1])
+        # cell_grid = tf.tile(cell_x, [self.batch_size, 1, 1, self.nb_box, 1])
+        
         
         coord_mask = tf.zeros(mask_shape)
         conf_mask  = tf.zeros(mask_shape)
@@ -311,8 +318,8 @@ class YOLO(object):
         optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
         self.model.summary()
 
-        self.model.compile(loss='mean_squared_error', optimizer=optimizer)
-        # self.model.compile(loss=self.custom_loss, optimizer=optimizer)
+        # self.model.compile(loss='mean_squared_error', optimizer=optimizer)
+        self.model.compile(loss=self.custom_loss, optimizer=optimizer)
 
         ############################################
         # Make a few callbacks

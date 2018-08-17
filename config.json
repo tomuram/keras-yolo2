@@ -1,14 +1,14 @@
 {
    "model" : {
       "backend":              "Full Yolo NCHW",
-      "input_shape":          [16,256,9600],
+      "input_shape":          [16,251,9600],
       "anchors":              [1,1],
       "max_box_per_image":    1,
       "labels":               ["bjet", "cjet", "sjet", "udjet", "other"]
    },
 
    "train": {
-      "train_image_folder":   "/homes/turam/local/dev/btaggingML/scripts/figures/2D",
+      "train_image_folder":   "/Users/jchilders/git/keras-yolo2/data/bjets",
       "evts_per_file":        10,
        
       "train_times":          8,
