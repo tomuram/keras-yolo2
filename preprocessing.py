@@ -3,7 +3,7 @@
 # import copy
 
 import sys,time
-if sys.version >= (3,0):
+if sys.version_info.major >= 3:
    import threading as threadmod
 else:
    import thread as threadmod
