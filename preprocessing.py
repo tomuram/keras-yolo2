@@ -2,8 +2,8 @@
 # import cv2
 # import copy
 
-import sys,time
-if sys.version >= (3,0):
+import sys,time,logging
+if sys.version_info >= (3,0):
    import threading as threadmod
 else:
    import thread as threadmod
@@ -14,7 +14,7 @@ import numpy as np
 from keras.utils import Sequence
 # import xml.etree.ElementTree as ET
 from utils import BoundBox  # , bbox_iou
-
+logger = logging.getLogger(__name__)
 # Right now the truth are format as:
 # bool objectFound   # if truth particle is in the hard scattering process
 # bbox x                    # globe eta
@@ -45,12 +45,14 @@ class BatchGenerator(Sequence):
       self.config          = config
       self.filelist        = filelist
       self.evts_per_file   = evts_per_file
-      # self.batch_size      = batch_size
+      self.batch_size      = self.config['BATCH_SIZE']
       self.nevts           = len(filelist) * self.evts_per_file
       # self.nbatches        = int(self.nevts * (1. / self.batch_size))
       self.num_classes     = len(config['LABELS'])
       self.num_grid_x      = config['GRID_W']
+      self.pix_per_grid_x  = float(self.config['IMAGE_W']) / self.config['GRID_W']
       self.num_grid_y      = config['GRID_H']
+      self.pix_per_grid_y  = float(self.config['IMAGE_H']) / self.config['GRID_H']
 
       self.shuffle = shuffle
       self.jitter  = jitter
@@ -147,29 +149,30 @@ class BatchGenerator(Sequence):
     # return a batch of images starting at the given index
     def __getitem__(self, idx):
         start = time.time()
-        print('starting get batch')
-        l_bound = idx * self.config['BATCH_SIZE']
-        r_bound = (idx + 1) * self.config['BATCH_SIZE']
+        logger.debug('starting get batch of size %s',self.batch_size)
 
-        if r_bound > self.size():
-            r_bound = self.size()
-            l_bound = r_bound - self.config['BATCH_SIZE']
 
         instance_count = 0
 
-        x_batch = np.zeros((r_bound - l_bound, self.config['IMAGE_C'], self.config['IMAGE_H'], self.config['IMAGE_W']))                         # input images
-        b_batch = np.zeros((r_bound - l_bound, 1, 1, 1, self.config['TRUE_BOX_BUFFER'], 4))   # list of self.config['TRUE_self.config['BOX']_BUFFER'] GT boxes
+        x_batch = np.zeros((self.batch_size, self.config['IMAGE_C'], self.config['IMAGE_H'], self.config['IMAGE_W']))                         # input images
+        b_batch = np.zeros((self.batch_size, 1, 1, 1, self.config['TRUE_BOX_BUFFER'], 4))   # list of self.config['TRUE_self.config['BOX']_BUFFER'] GT boxes
         # turam - removed space for anchor boxes
         # y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'],  self.config['GRID_W'], self.config['BOX'], 4+1+len(self.config['LABELS'])))                # desired network output
-        y_batch = np.zeros((r_bound - l_bound, self.config['GRID_H'], self.config['GRID_W'], self.config['BOX'], 4 + 1 + len(self.config['LABELS'])))                # desired network output
+        y_batch = np.zeros((self.batch_size, self.config['GRID_H'], self.config['GRID_W'], self.config['BOX'], 4 + 1 + len(self.config['LABELS'])))                # desired network output
 
-        file_index = idx % self.evts_per_file
-        image_index = idx - file_index
-        print('[{0}] thread '.format(time.time() - start),threadmod.get_ident(),' opening file with file_index ', file_index, ' image_index ',image_index)
-        file_content = np.load(self.filelist[file_index])
+        global_image_index = self.batch_size * idx
+        image_index = global_image_index % self.evts_per_file
+        file_index = global_image_index // self.evts_per_file
+
+        logger.debug('[{0}] thread {1} opening file with idx {2} file_index {3} image_index {4}'.format(time.time() - start,threadmod.get_ident(), idx, file_index,image_index))
+
+        if file_index < len(self.filelist):
+            file_content = np.load(self.filelist[file_index])
+        else:
+            raise Exception('file_index {0} is outside range for filelist {1}'.format(file_index,len(self.filelist)))
 
         for i in range(self.config['BATCH_SIZE']):
-            print('[{0}] loop {1} start'.format(time.time() - start,i))
+            logger.debug('[{0}] loop {1} start'.format(time.time() - start,i))
 
 
             if image_index >= self.evts_per_file:
@@ -181,7 +184,7 @@ class BatchGenerator(Sequence):
             all_objs = file_content['truth'][image_index]
 
 
-            print('[{0}] loop {1} file loaded'.format(time.time() - start,i))
+            logger.debug('[{0}] loop {1} file loaded'.format(time.time() - start,i))
 
             # augment input image and fix object's position and size
             # img, all_objs = self.aug_image(img, all_objs, jitter=self.jitter)
@@ -192,17 +195,17 @@ class BatchGenerator(Sequence):
             
             for obj in all_objs:
                 center_x = obj[BBOX_CENTER_X]
-                center_x = center_x / (float(self.config['IMAGE_W']) / self.config['GRID_W'])
+                center_x = center_x / self.pix_per_grid_x
                 center_y = obj[BBOX_CENTER_Y]
-                center_y = center_y / (float(self.config['IMAGE_H']) / self.config['GRID_H'])
+                center_y = center_y / self.pix_per_grid_y
 
-                grid_x = int(np.floor(center_x))
-                grid_y = int(np.floor(center_y))
+                grid_x = int(center_x)
+                grid_y = int(center_y)
 
                 if grid_x < self.config['GRID_W'] and grid_y < self.config['GRID_H']:
                     
-                    center_w = (obj[BBOX_WIDTH]) / (float(self.config['IMAGE_W']) / self.config['GRID_W'])  # unit: grid cell
-                    center_h = (obj[BBOX_HEIGHT]) / (float(self.config['IMAGE_H']) / self.config['GRID_H'])  # unit: grid cell
+                    center_w = (obj[BBOX_WIDTH]) / self.pix_per_grid_x  # unit: grid cell
+                    center_h = (obj[BBOX_HEIGHT]) / self.pix_per_grid_y  # unit: grid cell
                     
                     box = [center_x, center_y, center_w, center_h]
 
@@ -219,7 +222,7 @@ class BatchGenerator(Sequence):
                     true_box_index += 1
                     true_box_index = true_box_index % self.config['TRUE_BOX_BUFFER']
 
-            print('[{0}] loop {1} images converted'.format(time.time() - start,i))
+            logger.debug('[{0}] loop {1} images converted'.format(time.time() - start,i))
                             
             # assign input image to x_batch
             if self.norm is not None:
@@ -245,7 +248,7 @@ class BatchGenerator(Sequence):
             instance_count += 1
             image_index += 1
        
-        print('[{0}] exitig'.format(time.time() - start))
+        logger.debug('[{0}] exiting'.format(time.time() - start))
 
         # print(' new batch created', idx)
 

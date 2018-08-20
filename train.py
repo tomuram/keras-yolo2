@@ -1,11 +1,12 @@
 #! /usr/bin/env python
 
 import argparse
-import os,glob
+import os,glob,logging
 import numpy as np
 # from preprocessing import parse_annotation
 from frontend import YOLO
 import json
+logger = logging.getLogger(__name__)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -25,10 +26,12 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
-   filelist = glob.glob(config['train']['train_image_folder'] + '/*.npz')
+   glob_str = config['train']['train_image_folder'] + '/*.npz'
+   filelist = glob.glob(glob_str)
 
-   print('train_image_folder = ', config['train']['train_image_folder'] + '/*')
-   print('filelist = ', filelist)
+   logger.info('train_image_folder =   %s',glob_str)
+   logger.info('filelist =             %s',filelist)
+
 
 
    ###############################
@@ -51,10 +54,10 @@ def _main_(args):
 
    valid_imgs = filelist[train_valid_split:]
    train_imgs = filelist[:train_valid_split]
-
-   print('Length of filelist:{len(filelist)}')
-   print('Length of train_images:{len(train_imgs)}')
-   print('Length of valid_imgs:{len(valid_imgs)}')
+   
+   logger.info('Length of filelist:      %s',len(filelist))
+   logger.info('Length of train_images:  %s',len(train_imgs))
+   logger.info('Length of valid_imgs:    %s',len(valid_imgs))
 
    ###############################
    #   Construct the model
@@ -89,5 +92,6 @@ def _main_(args):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG,format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
     args = argparser.parse_args()
     _main_(args)
