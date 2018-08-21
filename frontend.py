@@ -93,6 +93,7 @@ class YOLO(object):
         mask_shape = tf.shape(y_true)[:4]
         
         cell_x = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_w), [self.grid_h]), (1, self.grid_h, self.grid_w, 1, 1)))
+        tf.Print(cell_x.shape,cell_x)
         cell_y = tf.to_float(tf.reshape(tf.tile(tf.range(self.grid_h), [self.grid_w]), (1, self.grid_w, self.grid_h, 1, 1)))
         cell_y = tf.transpose(cell_y, (0,2,1,3,4))
 
@@ -139,7 +140,7 @@ class YOLO(object):
         
         pred_wh_half = pred_box_wh / 2.
         pred_mins    = pred_box_xy - pred_wh_half
-        pred_maxes   = pred_box_xy + pred_wh_half       
+        pred_maxes   = pred_box_xy + pred_wh_half  
         
         intersect_mins  = tf.maximum(pred_mins,  true_mins)
         intersect_maxes = tf.minimum(pred_maxes, true_maxes)

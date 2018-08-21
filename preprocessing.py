@@ -181,7 +181,7 @@ class BatchGenerator(Sequence):
               file_content = np.load(self.filelist[file_index])
               image_index = 0
 
-            img = file_content['raw'][image_index]
+            x_batch[instance_count] = file_content['raw'][image_index]
             all_objs = file_content['truth'][image_index]
 
 
@@ -203,31 +203,29 @@ class BatchGenerator(Sequence):
                 grid_x = int(center_x)
                 grid_y = int(center_y)
 
-                if grid_x < self.config['GRID_W'] and grid_y < self.config['GRID_H']:
-                    
-                    center_w = (obj[BBOX_WIDTH]) / self.pix_per_grid_x  # unit: grid cell
-                    center_h = (obj[BBOX_HEIGHT]) / self.pix_per_grid_y  # unit: grid cell
-                    
-                    box = [center_x, center_y, center_w, center_h]
+                center_w = (obj[BBOX_WIDTH]) / self.pix_per_grid_x  # unit: grid cell
+                center_h = (obj[BBOX_HEIGHT]) / self.pix_per_grid_y  # unit: grid cell
+              
+                box = [center_x, center_y, center_w, center_h]
 
-                    # turam - note: removed anchor box handling
+                # turam - note: removed anchor box handling
 
-                    # assign ground truth x, y, w, h, confidence and class probs to y_batch
-                    y_batch[instance_count, grid_y, grid_x, 0, 0:4] = box
-                    y_batch[instance_count, grid_y, grid_x, 0, 4] = 1.
-                    y_batch[instance_count, grid_y, grid_x, 0, 5:10] = obj[5:10]
-                    
-                    # assign the true box to b_batch
-                    b_batch[instance_count, 0, 0, 0, true_box_index] = box
-                    
-                    true_box_index += 1
-                    true_box_index = true_box_index % self.config['TRUE_BOX_BUFFER']
+                # assign ground truth x, y, w, h, confidence and class probs to y_batch
+                y_batch[instance_count, grid_y, grid_x, 0, 0:4] = box
+                y_batch[instance_count, grid_y, grid_x, 0, 4] = 1.
+                y_batch[instance_count, grid_y, grid_x, 0, 5:5 + self.num_classes] = obj[5:5 + self.num_classes]
+              
+                # assign the true box to b_batch
+                b_batch[instance_count, 0, 0, 0, true_box_index] = box
+              
+                true_box_index += 1
+                # true_box_index = true_box_index % self.config['TRUE_BOX_BUFFER']
 
             logger.debug('[{0}] loop {1} images converted'.format(time.time() - start,i))
                             
             # assign input image to x_batch
-            if self.norm is not None:
-                x_batch[instance_count] = self.norm(img)
+            # if self.norm is not None:
+            #    x_batch[instance_count] = self.norm(img)
             
             # turam - disable plotting
             
