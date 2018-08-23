@@ -127,23 +127,24 @@ class BatchGenerator(Sequence):
     def __len__(self):
         return int(np.ceil(float(self.nevts) / self.config['BATCH_SIZE']))
 
-    def num_classes(self):
-        return len(self.config['LABELS'])
+    def get_num_classes(self):
+        return self.num_classes
 
     def size(self):
         return self.nevts
 
     def load_annotation(self, i):
-        file_index = i % self.evts_per_file
-        image_index = i - file_index
+        file_index = int(i / self.evts_per_file)
+        image_index = i % self.evts_per_file
         file_content = np.load(self.filelist[file_index])
-        obj = file_content['truth'][image_index]
+        obj = file_content['truth'][image_index][0]
+        logger.info(obj.shape)
         annot = [obj[BBOX_CENTER_X], obj[BBOX_CENTER_Y], obj[BBOX_WIDTH], obj[BBOX_HEIGHT], np.argmax(obj[5:10])]
         return np.array([annot])
 
     def load_image(self, i):
-        file_index = i % self.evts_per_file
-        image_index = i - file_index
+        file_index = int(i / self.evts_per_file)
+        image_index = i % self.evts_per_file
         file_content = np.load(self.filelist[file_index])
         return file_content['raw'][image_index]
 

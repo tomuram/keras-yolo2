@@ -26,7 +26,7 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
-   glob_str = config['train']['train_image_folder'] + '/*.npz'
+   glob_str = config['train']['train_image_folder']# + '/*.npz'
    filelist = glob.glob(glob_str)
 
    logger.info('train_image_folder =   %s',glob_str)

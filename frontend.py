@@ -3,7 +3,7 @@ from keras.layers import Reshape, Activation, Conv2D, Input, MaxPooling2D, Batch
 from keras.layers.advanced_activations import LeakyReLU
 import tensorflow as tf
 import numpy as np
-import os,time
+import os,time,logging
 import cv2
 from utils import decode_netout, compute_overlap, compute_ap
 from keras.applications.mobilenet import MobileNet
@@ -13,6 +13,7 @@ from preprocessing import BatchGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
 from backend import FullYoloFeatureNCHW
+logger = logging.getLogger(__name__)
 
 class YOLO(object):
     def __init__(self, backend,
@@ -270,7 +271,7 @@ class YOLO(object):
                     no_object_scale,
                     coord_scale,
                     class_scale,
-                    saved_weights_name='best_weights.h5',
+                    saved_weights_name='',
                     debug=False):     
 
         self.batch_size = batch_size
@@ -326,49 +327,49 @@ class YOLO(object):
         # Make a few callbacks
         ############################################
 
-        early_stop = EarlyStopping(monitor='val_loss', 
-                           min_delta=0.001, 
-                           patience=3, 
-                           mode='min', 
+        early_stop = EarlyStopping(monitor='val_loss',
+                           min_delta=0.001,
+                           patience=3,
+                           mode='min',
                            verbose=1)
-        checkpoint = ModelCheckpoint(saved_weights_name, 
-                                     monitor='val_loss', 
-                                     verbose=1, 
-                                     save_best_only=True, 
-                                     mode='min', 
+        checkpoint = ModelCheckpoint('weights.{epoch:02d}-{val_loss:.2f}.hdf5',
+                                     monitor='val_loss',
+                                     verbose=1,
+                                     save_best_only=True,
+                                     mode='min',
                                      period=1)
-        tensorboard = TensorBoard(log_dir='./logs', 
-                                  histogram_freq=0, 
-                                  #write_batch_performance=True,
-                                  write_graph=True, 
+        tensorboard = TensorBoard(log_dir='./logs',
+                                  histogram_freq=0,
+                                  # write_batch_performance=True,
+                                  write_graph=True,
                                   write_images=False)
 
         ############################################
         # Start the training process
-        ############################################        
+        ############################################
 
-        self.model.fit_generator(generator        = train_generator, 
-                                 steps_per_epoch  = len(train_generator) * train_times, 
-                                 epochs           = warmup_epochs + nb_epochs, 
+        self.model.fit_generator(generator        = train_generator,
+                                 steps_per_epoch  = len(train_generator) * train_times,
+                                 epochs           = warmup_epochs + nb_epochs,
                                  verbose          = 2 if debug else 1,
                                  validation_data  = valid_generator,
                                  validation_steps = len(valid_generator) * valid_times,
-                                 callbacks        = [early_stop, checkpoint, tensorboard], 
+                                 callbacks        = [early_stop, checkpoint, tensorboard],
                                  workers          = 0,
-                                 max_queue_size   = 5)      
+                                 max_queue_size   = 5)
 
         ############################################
         # Compute mAP on the validation set
         ############################################
-        average_precisions = self.evaluate(valid_generator)     
+        average_precisions = self.evaluate(valid_generator)
 
         # print evaluation
         for label, average_precision in average_precisions.items():
-            print(self.labels[label], '{:.4f}'.format(average_precision))
-        print('mAP: {:.4f}'.format(sum(average_precisions.values()) / len(average_precisions)))         
+            logger.info(self.labels[label], '{:.4f}'.format(average_precision))
+        logger.info('mAP: {:.4f}'.format(sum(average_precisions.values()) / len(average_precisions)))
 
-    def evaluate(self, 
-                 generator, 
+    def evaluate(self,
+                 generator,
                  iou_threshold=0.3,
                  score_threshold=0.3,
                  max_detections=100,
@@ -385,26 +386,25 @@ class YOLO(object):
             save_path       : The path to save images with visualized detections to.
         # Returns
             A dict mapping class names to mAP scores.
-        """    
+        """
         # gather all detections and annotations
-        all_detections     = [[None for i in range(generator.num_classes())] for j in range(generator.size())]
-        all_annotations    = [[None for i in range(generator.num_classes())] for j in range(generator.size())]
+        all_detections     = [[None for i in range(generator.num_classes)] for j in range(generator.size())]
+        all_annotations    = [[None for i in range(generator.num_classes)] for j in range(generator.size())]
 
         for i in range(generator.size()):
             raw_image = generator.load_image(i)
-            raw_height, raw_width, raw_channels = raw_image.shape
+            raw_channels, raw_height, raw_width = raw_image.shape
 
             # make the boxes and the labels
             pred_boxes  = self.predict(raw_image)
 
-            
             score = np.array([box.score for box in pred_boxes])
-            pred_labels = np.array([box.label for box in pred_boxes])        
+            pred_labels = np.array([box.label for box in pred_boxes])
             
             if len(pred_boxes) > 0:
                 pred_boxes = np.array([[box.xmin*raw_width, box.ymin*raw_height, box.xmax*raw_width, box.ymax*raw_height, box.score] for box in pred_boxes])
             else:
-                pred_boxes = np.array([[]])  
+                pred_boxes = np.array([[]])
             
             # sort the boxes and the labels according to scores
             score_sort = np.argsort(-score)
@@ -412,19 +412,19 @@ class YOLO(object):
             pred_boxes  = pred_boxes[score_sort]
             
             # copy detections to all_detections
-            for label in range(generator.num_classes()):
+            for label in range(generator.num_classes):
                 all_detections[i][label] = pred_boxes[pred_labels == label, :]
                 
             annotations = generator.load_annotation(i)
             
             # copy detections to all_annotations
-            for label in range(generator.num_classes()):
+            for label in range(generator.num_classes):
                 all_annotations[i][label] = annotations[annotations[:, 4] == label, :4].copy()
                 
         # compute mAP by comparing all detections and all annotations
         average_precisions = {}
         
-        for label in range(generator.num_classes()):
+        for label in range(generator.num_classes):
             false_positives = np.zeros((0,))
             true_positives  = np.zeros((0,))
             scores          = np.zeros((0,))
@@ -475,21 +475,21 @@ class YOLO(object):
             precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
 
             # compute average precision
-            average_precision  = compute_ap(recall, precision)  
+            average_precision  = compute_ap(recall, precision)
             average_precisions[label] = average_precision
 
-        return average_precisions    
+        return average_precisions
 
     def predict(self, image):
-        image_h, image_w, _ = image.shape
-        image = cv2.resize(image, (self.input_shape[1], self.input_shape[2]))
+        _, image_h, image_w = image.shape
+        # image = cv2.resize(image, (self.input_shape[1], self.input_shape[2]))
         image = self.feature_extractor.normalize(image)
 
-        input_image = image[:,:,::-1]
-        input_image = np.expand_dims(input_image, 0)
+        # input_image = image[:,:,::-1]
+        image = np.expand_dims(image, 0)
         dummy_array = np.zeros((1,1,1,1,self.max_box_per_image,4))
 
-        netout = self.model.predict([input_image, dummy_array])[0]
+        netout = self.model.predict([image, dummy_array])[0]
         boxes  = decode_netout(netout, self.anchors, self.nb_class)
 
         return boxes

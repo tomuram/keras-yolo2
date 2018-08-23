@@ -8,10 +8,10 @@
    },
 
    "train": {
-      "train_image_folder":   "/Users/jchilders/git/keras-yolo2/data/",
+      "train_image_folder":   "/Users/jchilders/git/keras-yolo2/data/scripts_figures_2D_event1*",
       "evts_per_file":        10,
        
-      "train_times":          8,
+      "train_times":          1,
       "pretrained_weights":   "",
       "batch_size":           2,
       "learning_rate":        1e-4,

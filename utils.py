@@ -92,15 +92,15 @@ def decode_netout(netout, anchors, nb_class, obj_threshold=0.3, nms_threshold=0.
                 
                 if np.sum(classes) > 0:
                     # first 4 elements are x, y, w, and h
-                    x, y, w, h = netout[row,col,b,:4]
+                    x, y, w, h = netout[row,col,b,1:5]
 
-                    x = (col + _sigmoid(x)) / grid_w # center position, unit: image width
-                    y = (row + _sigmoid(y)) / grid_h # center position, unit: image height
-                    w = anchors[2 * b + 0] * np.exp(w) / grid_w # unit: image width
-                    h = anchors[2 * b + 1] * np.exp(h) / grid_h # unit: image height
+                    x = (col + _sigmoid(x)) / grid_w  # center position, unit: image width
+                    y = (row + _sigmoid(y)) / grid_h  # center position, unit: image height
+                    w = anchors[2 * b + 0] * np.exp(w) / grid_w  # unit: image width
+                    h = anchors[2 * b + 1] * np.exp(h) / grid_h  # unit: image height
                     confidence = netout[row,col,b,4]
                     
-                    box = BoundBox(x-w/2, y-h/2, x+w/2, y+h/2, confidence, classes)
+                    box = BoundBox(x - w / 2, y - h / 2, x + w / 2, y + h / 2, confidence, classes)
                     
                     boxes.append(box)
 
@@ -111,10 +111,10 @@ def decode_netout(netout, anchors, nb_class, obj_threshold=0.3, nms_threshold=0.
         for i in range(len(sorted_indices)):
             index_i = sorted_indices[i]
             
-            if boxes[index_i].classes[c] == 0: 
+            if boxes[index_i].classes[c] == 0:
                 continue
             else:
-                for j in range(i+1, len(sorted_indices)):
+                for j in range(i + 1, len(sorted_indices)):
                     index_j = sorted_indices[j]
                     
                     if bbox_iou(boxes[index_i], boxes[index_j]) >= nms_threshold:
@@ -123,7 +123,7 @@ def decode_netout(netout, anchors, nb_class, obj_threshold=0.3, nms_threshold=0.
     # remove the boxes which are less likely than a obj_threshold
     boxes = [box for box in boxes if box.get_score() > obj_threshold]
     
-    return boxes    
+    return boxes
 
 def compute_overlap(a, b):
     """
