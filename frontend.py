@@ -2,6 +2,7 @@ from keras.models import Model
 from keras.layers import Reshape, Activation, Conv2D, Input, MaxPooling2D, BatchNormalization, Flatten, Dense, Lambda
 from keras.layers.advanced_activations import LeakyReLU
 import tensorflow as tf
+from keras import backend as keras_backend
 import numpy as np
 import os,time,logging
 import cv2
@@ -14,6 +15,13 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from backend import TinyYoloFeature, FullYoloFeature, MobileNetFeature, SqueezeNetFeature, Inception3Feature, VGG16Feature, ResNet50Feature
 from backend import FullYoloFeatureNCHW
 logger = logging.getLogger(__name__)
+
+# create custom session for TF
+config = tf.ConfigProto(intra_op_parallelism_threads=128,
+               inter_op_parallelism_threads=1,
+               allow_soft_placement=True)
+session = tf.Session(config=config)
+keras_backend.set_session(session)
 
 class YOLO(object):
     def __init__(self, backend,
@@ -344,6 +352,8 @@ class YOLO(object):
                                   write_graph=True,
                                   write_images=False)
 
+        
+
         ############################################
         # Start the training process
         ############################################
@@ -355,7 +365,7 @@ class YOLO(object):
                                  validation_data  = valid_generator,
                                  validation_steps = len(valid_generator) * valid_times,
                                  callbacks        = [early_stop, checkpoint, tensorboard],
-                                 workers          = 0,
+                                 workers          = 1,
                                  max_queue_size   = 5)
 
         ############################################
