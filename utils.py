@@ -3,7 +3,11 @@ import os
 import xml.etree.ElementTree as ET
 import tensorflow as tf
 import copy
-import cv2
+#import cv2
+import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Rectangle
+
 
 class BoundBox:
     def __init__(self, xmin, ymin, xmax, ymax, c = None, classes = None):
@@ -17,6 +21,9 @@ class BoundBox:
 
         self.label = -1
         self.score = -1
+
+    def __str__(self):
+        return ' '.join([str(f) for f in [self.xmin,self.ymin,self.xmax,self.ymax,self.c,self.get_label(),self.get_score()]])
 
     def get_label(self):
         if self.label == -1:
@@ -55,24 +62,42 @@ def bbox_iou(box1, box2):
     
     return float(intersect) / union
 
-def draw_boxes(image, boxes, labels):
-    image_h, image_w, _ = image.shape
+def draw_boxes(image, ax, boxes, labels, color='y', scale=True):
+    # _, image_w, image_h = image.shape
+    _, image_w, image_h = image.shape
 
+    rects = []
     for box in boxes:
-        xmin = int(box.xmin*image_w)
-        ymin = int(box.ymin*image_h)
-        xmax = int(box.xmax*image_w)
-        ymax = int(box.ymax*image_h)
+        if scale:
+            xmin = int(box.xmin*image_w)
+            ymin = int(box.ymin*image_h)
+            xmax = int(box.xmax*image_w)
+            ymax = int(box.ymax*image_h)
+        else:
+            xmin = box.xmin
+            ymin = box.ymin
+            xmax = box.xmax
+            ymax = box.ymax
 
-        cv2.rectangle(image, (xmin,ymin), (xmax,ymax), (0,255,0), 3)
-        cv2.putText(image, 
-                    labels[box.get_label()] + ' ' + str(box.get_score()), 
-                    (xmin, ymin - 13), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 
-                    1e-3 * image_h, 
-                    (0,255,0), 2)
+        # cv2.rectangle(image, (xmin,ymin), (xmax,ymax), (0,255,0), 3)
+        # cv2.putText(image, 
+        #             labels[box.get_label()] + ' ' + str(box.get_score()), 
+        #             (xmin, ymin - 13), 
+        #             cv2.FONT_HERSHEY_SIMPLEX, 
+        #             1e-3 * image_h, 
+        #             (0,255,0), 2)
+        print('xmin,ymin,xmax,ymax,image_w,image_h:',xmin,ymin,xmax,ymax,image_w,image_h)
+        rect = Rectangle((xmin,ymin),xmax-xmin,ymax-ymin, edgecolor=color,hatch='/',label=str(xmin))
+
+        rects.append(rect)
+    
+    pc = PatchCollection(rects, facecolor='y', alpha=0.5,
+                     edgecolor='r')
+
+    # Add collection to axes
+    ax.add_collection(pc)
         
-    return image          
+
         
 def decode_netout(netout, anchors, nb_class, obj_threshold=0.3, nms_threshold=0.3):
     grid_h, grid_w, nb_box = netout.shape[:3]
@@ -101,6 +126,7 @@ def decode_netout(netout, anchors, nb_class, obj_threshold=0.3, nms_threshold=0.
                     confidence = netout[row,col,b,4]
                     
                     box = BoundBox(x - w / 2, y - h / 2, x + w / 2, y + h / 2, confidence, classes)
+                    print('classes:', classes)
                     
                     boxes.append(box)
 

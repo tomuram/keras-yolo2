@@ -26,7 +26,7 @@ def _main_(args):
    with open(config_path) as config_buffer:
       config = json.loads(config_buffer.read())
 
-   glob_str = config['train']['train_image_folder']# + '/*.npz'
+   glob_str = config['train']['train_image_folder'] + '/*.npz'
    filelist = glob.glob(glob_str)
 
    logger.info('train_image_folder =   %s',glob_str)
@@ -87,6 +87,7 @@ def _main_(args):
             no_object_scale    = config['train']['no_object_scale'],
             coord_scale        = config['train']['coord_scale'],
             class_scale        = config['train']['class_scale'],
+            use_caching        = config['train']['use_caching'],
             saved_weights_name = config['train']['saved_weights_name'],
             debug              = config['train']['debug'])
 

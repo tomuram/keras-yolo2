@@ -167,6 +167,7 @@ class BatchGenerator(Sequence):
         file_index = global_image_index // self.evts_per_file
 
         logger.debug('[{0}] thread {1} opening file with idx {2} file_index {3} image_index {4}'.format(time.time() - start,threadmod.get_ident(), idx, file_index,image_index))
+        start_time = time.time()
 
         if file_index < len(self.filelist):
             file_content = np.load(self.filelist[file_index])
@@ -179,12 +180,15 @@ class BatchGenerator(Sequence):
 
             if image_index >= self.evts_per_file:
               file_index += 1
+              if file_index >= len(self.filelist):
+                file_index = 0
               file_content = np.load(self.filelist[file_index])
               image_index = 0
 
             x_batch[instance_count] = file_content['raw'][image_index]
             all_objs = file_content['truth'][image_index]
 
+            logger.debug("Time to load images file %d: %d", file_index, time.time() - start_time)
 
             logger.debug('[{0}] loop {1} file loaded'.format(time.time() - start,i))
 
@@ -215,7 +219,7 @@ class BatchGenerator(Sequence):
                 y_batch[instance_count, grid_y, grid_x, 0, 0:4] = box
                 y_batch[instance_count, grid_y, grid_x, 0, 4] = 1.
                 y_batch[instance_count, grid_y, grid_x, 0, 5:5 + self.num_classes] = obj[5:5 + self.num_classes]
-              
+
                 # assign the true box to b_batch
                 b_batch[instance_count, 0, 0, 0, true_box_index] = box
               

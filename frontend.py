@@ -17,8 +17,9 @@ from backend import FullYoloFeatureNCHW
 logger = logging.getLogger(__name__)
 
 # create custom session for TF
-config = tf.ConfigProto(intra_op_parallelism_threads=128,
-               inter_op_parallelism_threads=1,
+config = tf.ConfigProto(intra_op_parallelism_threads=5,
+                       device_count = {'GPU': 0},
+                       inter_op_parallelism_threads=1,
                allow_soft_placement=True)
 session = tf.Session(config=config)
 keras_backend.set_session(session)
@@ -279,6 +280,7 @@ class YOLO(object):
                     no_object_scale,
                     coord_scale,
                     class_scale,
+                    use_caching=False,
                     saved_weights_name='',
                     debug=False):     
 
@@ -290,6 +292,11 @@ class YOLO(object):
         self.class_scale     = class_scale
 
         self.debug = debug
+
+        if use_caching:
+            from preprocessing_cache import BatchGenerator
+        else:
+            from preprocessing import BatchGenerator
 
         ############################################
         # Make train and validation generators
@@ -362,10 +369,11 @@ class YOLO(object):
                                  steps_per_epoch  = len(train_generator) * train_times,
                                  epochs           = warmup_epochs + nb_epochs,
                                  verbose          = 2 if debug else 1,
+                                 #verbose          = 0,
                                  validation_data  = valid_generator,
                                  validation_steps = len(valid_generator) * valid_times,
                                  callbacks        = [early_stop, checkpoint, tensorboard],
-                                 workers          = 1,
+                                 workers          = 5,
                                  max_queue_size   = 5)
 
         ############################################
@@ -500,6 +508,7 @@ class YOLO(object):
         dummy_array = np.zeros((1,1,1,1,self.max_box_per_image,4))
 
         netout = self.model.predict([image, dummy_array])[0]
+        #print('netout:',netout)
         boxes  = decode_netout(netout, self.anchors, self.nb_class)
 
         return boxes
